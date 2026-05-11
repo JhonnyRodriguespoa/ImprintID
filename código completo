@@ -1,0 +1,1868 @@
+ImprintID — Código-Fonte Completo
+Documento gerado para publicação no GitHub. Contém todos os arquivos de código relevantes do projeto.
+
+Índice
+Configuração do Projeto
+Frontend — Aplicação React
+Ponto de entrada
+App.tsx — Roteamento de estado
+Páginas
+Componentes
+Bibliotecas utilitárias
+Programa Anchor (Rust)
+IDL (Interface Definition Language)
+API Server — Express 5
+Servidor e app
+Rotas
+Bibliotecas do servidor
+Bibliotecas Compartilhadas
+OpenAPI Spec
+Database Schema
+Configuração e CI/CD
+1. Configuração do Projeto
+pnpm-workspace.yaml
+packages:
+  - artifacts/*
+  - lib/*
+  - lib/integrations/*
+  - scripts
+autoInstallPeers: false
+catalog:
+  '@replit/vite-plugin-cartographer': ^0.5.1
+  '@replit/vite-plugin-dev-banner': ^0.1.1
+  '@replit/vite-plugin-runtime-error-modal': ^0.0.6
+  '@tailwindcss/vite': ^4.1.14
+  '@tanstack/react-query': ^5.90.21
+  '@types/node': ^25.3.3
+  '@types/react': ^19.2.0
+  '@types/react-dom': ^19.2.0
+  '@vitejs/plugin-react': ^5.0.4
+  class-variance-authority: ^0.7.1
+  clsx: ^2.1.1
+  drizzle-orm: ^0.45.2
+  framer-motion: ^12.23.24
+  lucide-react: ^0.545.0
+  react: 19.1.0
+  react-dom: 19.1.0
+  tailwind-merge: ^3.3.1
+  tailwindcss: ^4.1.14
+  tsx: ^4.21.0
+  vite: ^7.3.2
+  wouter: ^3.3.5
+  zod: 3.25.76
+
+artifacts/imprintid/package.json
+{
+  "name": "@workspace/imprintid",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.ts --host 0.0.0.0",
+    "build": "vite build --config vite.config.ts",
+    "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
+    "@solana/wallet-adapter-react": "^0.15.39",
+    "@solana/wallet-adapter-react-ui": "^0.9.39",
+    "@solana/wallet-adapter-wallets": "^0.19.38",
+    "@solana/web3.js": "^1.98.4",
+    "crypto-js": "^4.2.0"
+  },
+  "devDependencies": {
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^1.5.1",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.5.1",
+    "@metaplex-foundation/umi-signer-wallet-adapters": "^1.5.1",
+    "@tailwindcss/vite": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "@types/crypto-js": "^4.2.2",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@workspace/api-client-react": "workspace:*",
+    "framer-motion": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwind-merge": "catalog:",
+    "tailwindcss": "catalog:",
+    "vite": "catalog:",
+    "zod": "catalog:"
+  }
+}
+
+artifacts/api-server/package.json
+{
+  "name": "@workspace/api-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
+    "build": "node ./build.mjs",
+    "start": "node --enable-source-maps ./dist/index.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^1.5.1",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.5.1",
+    "@solana/web3.js": "^1.98.4",
+    "@workspace/api-zod": "workspace:*",
+    "@workspace/db": "workspace:*",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2",
+    "drizzle-orm": "catalog:",
+    "express": "^5",
+    "pino": "^9",
+    "pino-http": "^10",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "catalog:",
+    "esbuild": "^0.27.3",
+    "esbuild-plugin-pino": "^2.3.3",
+    "pino-pretty": "^13",
+    "thread-stream": "3.1.0"
+  }
+}
+
+.env.example
+# ──────────────────────────────────────────────────────────────────────────────
+# ImprintID — Environment Variables
+# Copy this file to .env and fill in your values.
+# Never commit .env to version control.
+# ──────────────────────────────────────────────────────────────────────────────
+# ── Required ──────────────────────────────────────────────────────────────────
+# Session secret (min 32 chars).
+# IMPORTANT: Also derives the server Solana wallet keypair.
+# Keep stable — changing it changes the server wallet address.
+SESSION_SECRET=change_me_to_a_long_random_string_at_least_32_chars
+# PostgreSQL connection string
+DATABASE_URL=postgresql://user:password@localhost:5432/imprintid
+# ── Solana (optional — have sane defaults) ────────────────────────────────────
+# Custom Devnet RPC endpoint. Falls back to https://api.devnet.solana.com
+# VITE_SOLANA_RPC=https://api.devnet.solana.com
+# Deployed Anchor program ID from Solana Playground.
+# When not set, the app uses the Memo Program as fallback.
+# VITE_PROGRAM_ID=REPLACE_WITH_YOUR_PROGRAM_ID
+# ── IPFS (optional — falls back to mock URI) ──────────────────────────────────
+# web3.storage API key for real IPFS uploads.
+# VITE_WEB3_STORAGE_KEY=your_web3_storage_key_here
+# ── Server wallet (optional override) ────────────────────────────────────────
+# Override server Solana payer keypair with a pre-funded wallet.
+# Format: JSON array of 64 numbers.
+# SOLANA_SERVER_KEYPAIR=[1,2,3,...]
+
+2. Frontend — Aplicação React
+2.1 Ponto de entrada
+artifacts/imprintid/src/main.tsx
+import React from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import "./index.css";
+createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+2.2 App.tsx — Roteamento de estado
+artifacts/imprintid/src/App.tsx
+import { useState, useMemo } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ConnectionProvider, WalletProvider, useWallet } from "@solana/wallet-adapter-react";
+import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
+import "@solana/wallet-adapter-react-ui/styles.css";
+import Connect from "./pages/Connect";
+import Landing from "./pages/Landing";
+import Experiment, { type FullExperimentResult } from "./pages/Experiment";
+import Dashboard from "./pages/Dashboard";
+const queryClient = new QueryClient();
+type Page = "landing" | "connect" | "experiment" | "dashboard";
+function AppContent() {
+  const { connected } = useWallet();
+  const [page, setPage] = useState<Page>("landing");
+  const [result, setResult] = useState<FullExperimentResult | null>(() => {
+    try {
+      const stored = localStorage.getItem("imprint_last_result");
+      return stored ? (JSON.parse(stored) as FullExperimentResult) : null;
+    } catch {
+      return null;
+    }
+  });
+  function handleFinish(data: FullExperimentResult) {
+    setResult(data);
+    try { localStorage.setItem("imprint_last_result", JSON.stringify(data)); } catch {}
+    setPage("dashboard");
+  }
+  function goToExperiment() {
+    if (!connected) { setPage("connect"); return; }
+    setPage("experiment");
+  }
+  function goToDashboard() {
+    if (!connected) { setPage("connect"); return; }
+    setPage("dashboard");
+  }
+  if (page === "connect") {
+    return <Connect onConnected={() => setPage("experiment")} />;
+  }
+  if (page === "landing") {
+    return (
+      <Landing
+        goExperiment={goToExperiment}
+        goDashboard={goToDashboard}
+      />
+    );
+  }
+  if (page === "experiment") {
+    return (
+      <Experiment
+        onFinish={handleFinish}
+        goBack={() => setPage("landing")}
+      />
+    );
+  }
+  return (
+    <Dashboard
+      result={result}
+      goBack={() => setPage("landing")}
+      goExperiment={goToExperiment}
+    />
+  );
+}
+export default function App() {
+  const wallets = useMemo(
+    () => [new PhantomWalletAdapter()],
+    []
+  );
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ConnectionProvider endpoint={import.meta.env.VITE_SOLANA_RPC ?? "https://api.devnet.solana.com"}>
+        <WalletProvider wallets={wallets} autoConnect>
+          <WalletModalProvider>
+            <AppContent />
+          </WalletModalProvider>
+        </WalletProvider>
+      </ConnectionProvider>
+    </QueryClientProvider>
+  );
+}
+
+2.3 Páginas
+artifacts/imprintid/src/pages/Connect.tsx
+import { useState, useEffect } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { AlertCircle, ArrowRight, ShieldCheck } from "lucide-react";
+const PhantomIcon = ({ size = 48 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="32" fill="#AB9FF2" />
+    <path
+      d="M110.584 64.832c0 24.096-20.234 43.637-45.209 43.637-24.088 0-44.323-18.327-45.172-41.63-.025-.663.537-1.206 1.204-1.206h7.902c.63 0 1.158.47 1.2 1.097.848 13.51 12.347 24.221 26.554 24.221 14.715 0 26.652-11.49 26.652-25.67V21.332c0-.665.54-1.204 1.205-1.204h7.902c.665 0 1.205.539 1.205 1.204v42.5z"
+      fill="white"
+    />
+    <path
+      d="M94.288 60.696H79.2c-.507 0-.836-.543-.596-.988l7.544-13.812a.686.686 0 011.192 0l7.544 13.812c.24.445-.089.988-.596.988z"
+      fill="white"
+    />
+  </svg>
+);
+interface ConnectProps {
+  onConnected?: () => void;
+}
+export default function Connect({ onConnected }: ConnectProps) {
+  const { select, connecting, connected, wallets } = useWallet();
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (connected) onConnected?.();
+  }, [connected]);
+  async function handleConnect() {
+    setError(null);
+    try {
+      const phantom = wallets.find((w) => w.adapter.name === "Phantom");
+      if (!phantom) throw new Error("Phantom adapter not found");
+      select(phantom.adapter.name);
+      await phantom.adapter.connect();
+    } catch (err: any) {
+      if (
+        err?.name === "WalletWindowClosedError" ||
+        err?.message?.includes("User rejected") ||
+        err?.message?.includes("cancelled")
+      ) {
+        setError("Conexão cancelada. Tente novamente.");
+      } else {
+        setError(err?.message ?? "Erro ao conectar. Certifique-se que o Phantom está desbloqueado.");
+      }
+    }
+  }
+  return (
+    <div className="min-h-screen bg-[#080808] flex flex-col">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-violet-700/8 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-emerald-800/6 rounded-full blur-3xl" />
+      </div>
+      <div className="relative px-8 pt-8 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-white font-bold text-lg">ImprintID</span>
+          <span className="text-[10px] font-mono text-white/25 border border-white/10 rounded-full px-2 py-0.5">
+            PROOF OF EXPERIENCE
+          </span>
+        </div>
+        <div className="text-[10px] font-mono text-white/20 tracking-widest">SOLANA DEVNET</div>
+      </div>
+      <div className="relative flex-1 flex items-center justify-center px-6 py-16">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          className="max-w-sm w-full"
+        >
+          <div className="flex justify-center mb-8">
+            <motion.div
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              className="relative"
+            >
+              <div className="absolute inset-0 bg-violet-500/20 rounded-3xl blur-xl scale-125" />
+              <PhantomIcon size={80} />
+            </motion.div>
+          </div>
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold text-white mb-3 leading-tight">Connect with Phantom</h1>
+            <p className="text-white/45 text-sm leading-relaxed">
+              Your Phantom wallet is your identity on ImprintID.
+              <br />
+              No email, no password — just your wallet.
+            </p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleConnect}
+            disabled={connecting}
+            className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-2xl bg-[#AB9FF2] hover:bg-[#c0b6f5] text-[#1a1033] font-bold text-base transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-violet-500/20"
+          >
+            {connecting ? (
+              <>
+                <div className="w-5 h-5 rounded-full border-2 border-[#1a1033]/40 border-t-[#1a1033] animate-spin" />
+                Conectando...
+              </>
+            ) : (
+              <>
+                <PhantomIcon size={22} />
+                Connect Phantom
+                <ArrowRight className="w-4 h-4 ml-auto" />
+              </>
+            )}
+          </motion.button>
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                className="mt-4 flex items-start gap-3 p-4 rounded-xl border border-red-500/20 bg-red-500/8"
+              >
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-300">{error}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <div className="mt-8 grid grid-cols-3 gap-3">
+            {[
+              { icon: "🔐", label: "Non-custodial" },
+              { icon: "🧬", label: "Behavioral ID" },
+              { icon: "⛓", label: "On-chain proof" },
+            ].map(({ icon, label }) => (
+              <div key={label} className="flex flex-col items-center gap-2 p-3 rounded-xl border border-white/6 bg-white/[0.02] text-center">
+                <span className="text-lg">{icon}</span>
+                <span className="text-[10px] text-white/30 font-mono">{label}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+      <div className="relative pb-8 text-center">
+        <div className="flex items-center justify-center gap-2 text-xs text-white/20">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          ImprintID never stores your private key or seed phrase.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+artifacts/imprintid/src/pages/Experiment.tsx
+import { useState, useRef } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { generateHash } from "../lib/hash";
+import { uploadToIPFS, uploadNftMetadata } from "../lib/ipfs";
+import { buildNftMetadata } from "../lib/nft";
+import {
+  ArrowLeft, ArrowRight, Loader2, CheckCircle, AlertCircle, ShieldCheck,
+} from "lucide-react";
+import WalletButton from "../components/WalletButton";
+import StimulusVisual from "../components/StimulusVisual";
+import ScaleSlider from "../components/ScaleSlider";
+import type { StimulusResponse, ReactionLevel, AssociationLevel, ResponseType } from "../lib/iss";
+import { computeISS } from "../lib/iss";
+const STIMULI = [
+  { id: "flood",        label: "Enchentes RS",              context: "Sul do Brasil, 2024" },
+  { id: "covid",        label: "COVID-19",                  context: "Pandemia, 2020–2022" },
+  { id: "displacement", label: "Deslocamento Populacional", context: "Crise global de deslocamento" },
+  { id: "conflict",     label: "Conflito Geopolítico",      context: "Zona urbana, em curso" },
+];
+type Step =
+  | "consent" | "intro" | "observe" | "react-immediate"
+  | "react-association" | "react-scales" | "transition"
+  | "processing" | "done" | "error";
+interface BlankResponse {
+  reaction: ReactionLevel;
+  association: AssociationLevel;
+  anxiety: number;
+  sadness: number;
+  fear: number;
+  connection: number;
+}
+function blankResponse(): BlankResponse {
+  return { reaction: "nothing", association: "no", anxiety: 0, sadness: 0, fear: 0, connection: 0 };
+}
+export interface FullExperimentResult {
+  hash: string;
+  uri: string;
+  signature: string;
+  responses: StimulusResponse[];
+  iss: ReturnType<typeof computeISS>;
+  timestamp: number;
+  nftMint?: string;
+  nftMetadataUri?: string;
+  nftTx?: string;
+}
+interface ExperimentProps {
+  onFinish: (result: FullExperimentResult) => void;
+  goBack: () => void;
+}
+export default function Experiment({ onFinish, goBack }: ExperimentProps) {
+  const wallet = useWallet();
+  const { connected, publicKey } = wallet;
+  const [step, setStep] = useState<Step>("consent");
+  const [stimIdx, setStimIdx] = useState(0);
+  const [responses, setResponses] = useState<StimulusResponse[]>([]);
+  const [current, setCurrent] = useState<BlankResponse>(blankResponse());
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState("");
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const observeStartRef = useRef<number>(0);
+  const observeEndRef = useRef<number>(0);
+  const [variant] = useState<"A" | "B">(() => Math.random() < 0.5 ? "A" : "B");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stim = STIMULI[stimIdx];
+  const totalStimuli = STIMULI.length;
+  function clearObserveTimers() {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+  }
+  function advanceObserve() {
+    observeEndRef.current = Date.now();
+    clearObserveTimers();
+    setCountdown(null);
+    setStep("react-immediate");
+  }
+  function startObserve() {
+    observeStartRef.current = Date.now();
+    observeEndRef.current = 0;
+    setStep("observe");
+    setCountdown(35);
+    intervalRef.current = setInterval(() => {
+      setCountdown((c) => {
+        if (c === null || c <= 1) { clearInterval(intervalRef.current!); intervalRef.current = null; return null; }
+        return c - 1;
+      });
+    }, 1000);
+    timerRef.current = setTimeout(() => {
+      intervalRef.current && clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      observeEndRef.current = Date.now();
+      setCountdown(null);
+      setStep("react-immediate");
+    }, 35000);
+  }
+  function pickReaction(r: ReactionLevel) {
+    setCurrent((c) => ({ ...c, reaction: r }));
+    setStep("react-association");
+  }
+  function pickAssociation(a: AssociationLevel) {
+    setCurrent((c) => ({ ...c, association: a }));
+    setStep("react-scales");
+  }
+  function confirmScales() {
+    const now = Date.now();
+    const reactionTimeMs = now - observeStartRef.current;
+    const observeTimeMs = observeEndRef.current > 0
+      ? observeEndRef.current - observeStartRef.current
+      : reactionTimeMs;
+    const responseType: ResponseType = observeTimeMs < 8000 ? "instinctive" : "reflective";
+    const completed: StimulusResponse = {
+      ...current,
+      id: stim.id, label: stim.label, variant,
+      reactionTimeMs, observeTimeMs, responseType,
+    };
+    const newResponses = [...responses, completed];
+    setResponses(newResponses);
+    if (stimIdx < totalStimuli - 1) {
+      setCurrent(blankResponse());
+      setStimIdx((i) => i + 1);
+      setStep("transition");
+      setTimeout(() => startObserve(), 800);
+    } else {
+      submitAll(newResponses);
+    }
+  }
+  async function submitAll(allResponses: StimulusResponse[]) {
+    if (!connected || !publicKey) { setError("Wallet not connected."); setStep("error"); return; }
+    setStep("processing");
+    try {
+      const iss = computeISS(allResponses);
+      const timestamp = Date.now();
+      const payload = {
+        protocol: "imprint-v2",
+        timestamp,
+        variant,
+        responses: allResponses.map((r) => ({
+          stimulus: r.id, variant: r.variant, reaction: r.reaction, association: r.association,
+          scales: { anxiety: r.anxiety, sadness: r.sadness, fear: r.fear, connection: r.connection },
+          reactionTimeMs: r.reactionTimeMs, observeTimeMs: r.observeTimeMs, responseType: r.responseType,
+        })),
+        iss: {
+          score: iss.score, attachmentProfile: iss.attachmentProfile,
+          emotionalIntensity: iss.emotionalIntensity, associationRate: iss.associationRate,
+          avgObserveTimeMs: iss.avgObserveTimeMs, emotionalDelta: iss.emotionalDelta,
+          emotionalVariance: iss.emotionalVariance, dominantTrigger: iss.dominantTrigger,
+          overallResponseType: iss.overallResponseType,
+        },
+      };
+      setProgress("Calculando hash dos dados...");
+      const hash = generateHash(payload);
+      setProgress("Enviando payload para IPFS...");
+      const uri = await uploadToIPFS(payload);
+      setProgress("Preparando metadados do NFT...");
+      const nftMetadata = buildNftMetadata(iss, uri, variant);
+      const nftMetadataUri = await uploadNftMetadata(nftMetadata);
+      setProgress("Mintando NFT e ancorando hash on-chain...");
+      let nftMint: string | undefined;
+      let nftTx: string | undefined;
+      let signature = "N/A";
+      try {
+        const nftRes = await fetch("/api/nft/mint", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            walletAddress: publicKey.toBase58(),
+            metadataUri: nftMetadataUri,
+            nftName: `ImprintID — ${iss.attachmentLabel}`,
+            hash, uri, iss: iss.score,
+            attachmentProfile: iss.attachmentProfile,
+            variant, timestamp,
+          }),
+        });
+        if (nftRes.ok) {
+          const data = await nftRes.json() as {
+            mint?: string; txSignature?: string; memoSignature?: string;
+          };
+          nftMint = data.mint;
+          nftTx = data.txSignature;
+          signature = data.memoSignature ?? "N/A";
+        } else {
+          console.warn("NFT/anchor API returned", nftRes.status);
+        }
+      } catch (nftErr: unknown) {
+        console.warn("NFT/anchor call failed (non-fatal):", nftErr);
+      }
+      setStep("done");
+      setTimeout(() => {
+        onFinish({ hash, uri, signature, responses: allResponses, iss, timestamp, nftMint, nftMetadataUri, nftTx });
+      }, 1600);
+    } catch (err: unknown) {
+      setError((err as { message?: string })?.message ?? "Falha no processamento.");
+      setStep("error");
+    }
+  }
+  return (
+    <div className="min-h-screen bg-[#080808] text-white flex flex-col">
+      <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
+        <button onClick={goBack} className="flex items-center gap-2 text-sm text-white/40 hover:text-white transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Voltar
+        </button>
+        <div className="flex items-center gap-3">
+          {step !== "consent" && step !== "intro" && step !== "processing" && step !== "done" && step !== "error" && (
+            <span className="text-xs font-mono text-white/25">ESTÍMULO {stimIdx + 1}/{totalStimuli}</span>
+          )}
+          <span className="text-[10px] font-mono text-emerald-400/60 border border-emerald-500/20 rounded-full px-2 py-0.5">DEVNET</span>
+        </div>
+        <WalletButton />
+      </div>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <AnimatePresence mode="wait">
+          {step === "consent" && (
+            <motion.div key="consent" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-lg w-full">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-6">
+                <ShieldCheck className="w-6 h-6 text-amber-400" />
+              </div>
+              <h2 className="text-2xl font-bold mb-4">Antes de começar</h2>
+              <div className="space-y-3 mb-8 text-sm text-white/50 leading-relaxed">
+                <p>Este experimento apresenta <strong className="text-white/70">4 imagens documentais</strong> relacionadas a eventos coletivos reais.</p>
+                <p>Você pode <strong className="text-white/70">interromper a qualquer momento</strong> clicando em Voltar.</p>
+                <p>Suas respostas são <strong className="text-white/70">processadas localmente</strong>. Apenas uma impressão criptográfica é registrada on-chain.</p>
+                <p className="text-white/25 text-xs">O NFT é mintado pelo servidor — você não precisa de SOL de teste para participar.</p>
+              </div>
+              <div className="flex gap-3">
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setStep("intro")} className="flex-1 py-3.5 rounded-xl bg-white text-black font-semibold text-sm hover:bg-white/90 transition-colors">
+                  Entendi, continuar
+                </motion.button>
+                <button onClick={goBack} className="px-5 py-3.5 rounded-xl border border-white/12 text-white/50 text-sm hover:bg-white/5 transition-colors">Voltar</button>
+              </div>
+            </motion.div>
+          )}
+          {step === "intro" && (
+            <motion.div key="intro" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-md w-full text-center">
+              <div className="w-20 h-20 rounded-3xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-6">
+                <span className="text-4xl">🧬</span>
+              </div>
+              <h2 className="text-3xl font-bold mb-3">Protocolo de Resposta Emocional</h2>
+              <p className="text-white/45 text-sm leading-relaxed mb-8">
+                4 imagens documentais, uma por vez. Avalie reação imediata, associação pessoal e intensidade emocional. Sua resposta é ancorada na <span className="text-emerald-400">Solana Devnet</span>.
+              </p>
+              <div className="grid grid-cols-4 gap-2 mb-10 text-[10px] font-mono text-white/25">
+                {STIMULI.map((s, i) => (
+                  <div key={s.id} className="flex flex-col items-center gap-1.5">
+                    <div className="w-8 h-8 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center text-base">
+                      {["🌊", "🏠", "🚶", "🏚️"][i]}
+                    </div>
+                    <span className="text-center leading-tight">{s.label}</span>
+                  </div>
+                ))}
+              </div>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => startObserve()} className="w-full py-4 rounded-xl bg-white text-black font-semibold text-sm hover:bg-white/90 transition-colors">
+                Iniciar experimento
+              </motion.button>
+            </motion.div>
+          )}
+          {step === "observe" && (
+            <motion.div key={`observe-${stimIdx}`} initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="w-full max-w-2xl">
+              <div className="flex items-center justify-between mb-4 px-1">
+                <p className="text-white/30 text-xs tracking-widest uppercase font-mono">Observe o estímulo atentamente</p>
+                <div className="relative w-7 h-7">
+                  <svg className="w-7 h-7 -rotate-90" viewBox="0 0 28 28">
+                    <circle cx="14" cy="14" r="11" fill="none" stroke="#ffffff12" strokeWidth="2.5" />
+                    {countdown !== null && (
+                      <circle cx="14" cy="14" r="11" fill="none"
+                        stroke={countdown <= 5 ? "#f87171" : "#ffffff50"} strokeWidth="2.5"
+                        strokeDasharray={`${2 * Math.PI * 11}`}
+                        strokeDashoffset={`${2 * Math.PI * 11 * (1 - countdown / 35)}`}
+                        strokeLinecap="round"
+                        style={{ transition: "stroke-dashoffset 1s linear, stroke 0.3s" }}
+                      />
+                    )}
+                  </svg>
+                  <span className={`absolute inset-0 flex items-center justify-center text-[9px] font-mono font-bold ${countdown !== null && countdown <= 5 ? "text-red-400" : "text-white/50"}`}>
+                    {countdown ?? "—"}
+                  </span>
+                </div>
+              </div>
+              <StimulusVisual id={stim.id} variant={variant} />
+              <div className="flex items-center justify-between mt-5 px-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white/20 animate-pulse" />
+                  <p className="text-white/25 text-xs font-mono tracking-wider">{stim.context}</p>
+                </div>
+                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} onClick={advanceObserve}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs font-mono transition-all">
+                  Continuar <ArrowRight className="w-3.5 h-3.5" />
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+          {step === "react-immediate" && (
+            <motion.div key={`react-imm-${stimIdx}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-md w-full">
+              <p className="text-white/30 text-xs font-mono uppercase tracking-widest text-center mb-2">{stim.label}</p>
+              <h3 className="text-xl font-bold text-center mb-8">O que você sentiu ao ver esta imagem?</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { value: "nothing",   label: "Nada",                sub: "Sem resposta emocional notável",  emoji: "○" },
+                  { value: "slight",    label: "Leve desconforto",    sub: "Tensão ou inquietação leve",       emoji: "◔" },
+                  { value: "emotional", label: "Impacto emocional",   sub: "Ativação emocional clara",         emoji: "◑" },
+                  { value: "strong",    label: "Forte identificação", sub: "Ressonância pessoal intensa",      emoji: "●" },
+                ] as const).map((opt) => (
+                  <motion.button key={opt.value} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                    onClick={() => pickReaction(opt.value)}
+                    className="flex flex-col items-start gap-2 p-5 rounded-2xl border border-white/10 bg-white/[0.03] hover:bg-white/8 hover:border-white/20 transition-all text-left">
+                    <span className="text-2xl text-white/40 font-mono">{opt.emoji}</span>
+                    <div>
+                      <p className="text-sm font-semibold text-white mb-0.5">{opt.label}</p>
+                      <p className="text-xs text-white/35">{opt.sub}</p>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+          {step === "react-association" && (
+            <motion.div key={`react-assoc-${stimIdx}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-md w-full">
+              <p className="text-white/30 text-xs font-mono uppercase tracking-widest text-center mb-2">{stim.label}</p>
+              <h3 className="text-xl font-bold text-center mb-3">Esta imagem lembra algo que você viveu?</h3>
+              <p className="text-white/35 text-sm text-center mb-10">Uma memória pessoal, uma experiência ou conexão direta.</p>
+              <div className="grid grid-cols-3 gap-3">
+                {([
+                  { value: "yes",         label: "Sim",              sub: "Conecta com minha experiência" },
+                  { value: "no",          label: "Não",              sub: "Sem conexão pessoal" },
+                  { value: "prefer_not",  label: "Prefiro não dizer",sub: "Não quero responder" },
+                ] as const).map((opt) => (
+                  <motion.button key={opt.value} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                    onClick={() => pickAssociation(opt.value)}
+                    className="flex flex-col items-center gap-2 p-5 rounded-2xl border border-white/10 bg-white/[0.03] hover:bg-white/8 hover:border-white/20 transition-all text-center">
+                    <p className="text-sm font-semibold text-white">{opt.label}</p>
+                    <p className="text-xs text-white/35 leading-tight">{opt.sub}</p>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+          {step === "react-scales" && (
+            <motion.div key={`react-scales-${stimIdx}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-md w-full">
+              <p className="text-white/30 text-xs font-mono uppercase tracking-widest text-center mb-2">{stim.label}</p>
+              <h3 className="text-xl font-bold text-center mb-2">Avalie sua intensidade emocional</h3>
+              <p className="text-white/35 text-sm text-center mb-8">Ajuste cada dimensão conforme o que você sentiu (0–10).</p>
+              <div className="space-y-6">
+                <ScaleSlider label="Ansiedade"       value={current.anxiety}    onChange={(v) => setCurrent((c) => ({ ...c, anxiety: v }))}    color="red"     />
+                <ScaleSlider label="Tristeza"        value={current.sadness}    onChange={(v) => setCurrent((c) => ({ ...c, sadness: v }))}    color="blue"    />
+                <ScaleSlider label="Medo"            value={current.fear}       onChange={(v) => setCurrent((c) => ({ ...c, fear: v }))}       color="violet"  />
+                <ScaleSlider label="Conexão Pessoal" value={current.connection} onChange={(v) => setCurrent((c) => ({ ...c, connection: v }))} color="emerald" />
+              </div>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={confirmScales}
+                className="mt-8 w-full py-3.5 rounded-xl bg-white text-black font-semibold text-sm hover:bg-white/90 transition-colors flex items-center justify-center gap-2">
+                {stimIdx < totalStimuli - 1
+                  ? (<>Próximo estímulo <ArrowRight className="w-4 h-4" /></>)
+                  : (<>Concluir experimento <ArrowRight className="w-4 h-4" /></>)}
+              </motion.button>
+              <div className="flex gap-1.5 justify-center mt-5">
+                {STIMULI.map((_, i) => (
+                  <div key={i} className={`h-1 rounded-full transition-all ${i < stimIdx ? "w-6 bg-emerald-500" : i === stimIdx ? "w-6 bg-white" : "w-3 bg-white/15"}`} />
+                ))}
+              </div>
+            </motion.div>
+          )}
+          {step === "transition" && (
+            <motion.div key={`transition-${stimIdx}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
+              <p className="text-white/30 text-sm font-mono">Preparando próximo estímulo...</p>
+            </motion.div>
+          )}
+          {step === "processing" && (
+            <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center max-w-sm w-full">
+              <Loader2 className="w-12 h-12 animate-spin text-violet-400 mx-auto mb-6" />
+              <h3 className="text-xl font-semibold mb-2">Criando imprint</h3>
+              <p className="text-white/35 text-sm font-mono mb-8">{progress}</p>
+              <div className="space-y-2">
+                {[
+                  "Calculando hash dos dados...",
+                  "Enviando payload para IPFS...",
+                  "Preparando metadados do NFT...",
+                  "Mintando NFT de identidade...",
+                  "Enviando transação de ancoragem...",
+                ].map((s) => (
+                  <div key={s} className="flex items-center gap-2 text-xs text-white/25 font-mono">
+                    <span className={`w-1.5 h-1.5 rounded-full ${progress === s ? "bg-violet-400 animate-pulse" : "bg-white/15"}`} />
+                    {s}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+          {step === "done" && (
+            <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
+              <CheckCircle className="w-16 h-16 text-emerald-400 mx-auto mb-6" />
+              <h3 className="text-2xl font-bold mb-2">Imprint ancorado no Devnet</h3>
+              <p className="text-white/35 text-sm">Gerando seu perfil comportamental...</p>
+            </motion.div>
+          )}
+          {step === "error" && (
+            <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-md w-full text-center">
+              <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-6" />
+              <h3 className="text-xl font-bold mb-2">Algo deu errado</h3>
+              <p className="text-white/35 text-sm mb-8 font-mono break-all">{error}</p>
+              <button onClick={() => setStep("consent")} className="px-6 py-3 rounded-xl border border-white/15 text-sm hover:bg-white/5 transition-colors">
+                Tentar novamente
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+artifacts/imprintid/src/pages/Dashboard.tsx
+Arquivo extenso — ver código completo em artifacts/imprintid/src/pages/Dashboard.tsx no repositório.
+Principais funcionalidades: ISS Gauge (SVG semicircular), cartão de perfil de apego com badge colorido, grid de variáveis E/A/T/D/V, breakdown por estímulo, seção de NFT mintado com links para Solscan, exibição do hash SHA-256 e URI IPFS, airdrop de SOL para a carteira do usuário.
+
+2.4 Componentes
+artifacts/imprintid/src/components/WalletButton.tsx
+import { useState, useRef, useEffect } from "react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { Copy, CheckCheck, ExternalLink, LogOut, ChevronDown, Droplets } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import * as anchor from "@coral-xyz/anchor";
+import { requestAirdrop } from "../lib/solana";
+function shortenAddress(addr: string) {
+  return addr.slice(0, 4) + "..." + addr.slice(-4);
+}
+function useSOLBalance(publicKey: anchor.web3.PublicKey | null) {
+  const { connection } = useConnection();
+  const [balance, setBalance] = useState<number | null>(null);
+  useEffect(() => {
+    if (!publicKey) { setBalance(null); return; }
+    let cancelled = false;
+    connection.getBalance(publicKey).then((lamports) => {
+      if (!cancelled) setBalance(lamports / anchor.web3.LAMPORTS_PER_SOL);
+    }).catch(() => { if (!cancelled) setBalance(null); });
+    const id = connection.onAccountChange(publicKey, (info) => {
+      if (!cancelled) setBalance(info.lamports / anchor.web3.LAMPORTS_PER_SOL);
+    });
+    return () => { cancelled = true; connection.removeAccountChangeListener(id); };
+  }, [publicKey, connection]);
+  return balance;
+}
+export default function WalletButton() {
+  const { connected, connecting, publicKey, disconnect, select, wallets } = useWallet();
+  const { connection } = useConnection();
+  const balance = useSOLBalance(publicKey);
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [airdropping, setAirdropping] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const address = publicKey?.toBase58() ?? "";
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+  function copyAddress() {
+    navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  async function handleAirdrop() {
+    if (!publicKey) return;
+    setAirdropping(true);
+    try { await requestAirdrop(connection, publicKey); } catch {}
+    setAirdropping(false);
+  }
+  function connectPhantom() {
+    const phantom = wallets.find(w => w.adapter.name === "Phantom");
+    if (phantom) {
+      select(phantom.adapter.name);
+      phantom.adapter.connect().catch(() => {});
+    } else {
+      window.open("https://phantom.app/", "_blank");
+    }
+  }
+  if (connecting) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-white/50">
+        <div className="w-3.5 h-3.5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
+        Connecting...
+      </div>
+    );
+  }
+  if (!connected) {
+    return (
+      <button onClick={connectPhantom} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 text-sm font-medium transition-all">
+        Connect Phantom
+      </button>
+    );
+  }
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen((v) => !v)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/8 transition-all text-sm">
+        <span className="font-mono text-white/80">{shortenAddress(address)}</span>
+        {balance !== null && (
+          <span className="text-white/35 text-xs border-l border-white/10 pl-2.5">
+            {balance.toFixed(3)} SOL
+          </span>
+        )}
+        <ChevronDown className={`w-3.5 h-3.5 text-white/30 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ opacity: 0, y: 6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 4, scale: 0.97 }} transition={{ duration: 0.15 }}
+            className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-white/10 bg-[#111] shadow-2xl shadow-black/60 overflow-hidden z-50">
+            <div className="px-4 py-4 border-b border-white/8">
+              <div onClick={copyAddress} className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 border border-white/8 cursor-pointer hover:bg-white/8 transition-colors group">
+                <span className="font-mono text-xs text-white/60 tracking-wide">{shortenAddress(address)}</span>
+                {copied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-white/25 group-hover:text-white/50 transition-colors" />}
+              </div>
+            </div>
+            <div className="px-4 py-4 border-b border-white/8">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">Balance · Devnet</p>
+                <button onClick={handleAirdrop} disabled={airdropping}
+                  className="flex items-center gap-1 text-[10px] font-mono text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50">
+                  <Droplets className="w-3 h-3" />
+                  {airdropping ? "Airdropping..." : "Airdrop 1 SOL"}
+                </button>
+              </div>
+              <p className="text-2xl font-bold text-white">{balance !== null ? `${balance.toFixed(4)} SOL` : "—"}</p>
+            </div>
+            <div className="p-2">
+              <a href={`https://solscan.io/account/${address}?cluster=devnet`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-sm text-white/60 hover:text-white/90 w-full" onClick={() => setOpen(false)}>
+                <ExternalLink className="w-4 h-4" /> View on Solscan
+              </a>
+              <button onClick={() => { disconnect(); setOpen(false); }}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-500/8 transition-colors text-sm text-white/40 hover:text-red-400 w-full">
+                <LogOut className="w-4 h-4" /> Disconnect
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+artifacts/imprintid/src/components/ScaleSlider.tsx
+interface ScaleSliderProps {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  color?: "violet" | "blue" | "red" | "emerald";
+}
+const COLOR_MAP = {
+  violet:  { track: "bg-violet-500",  text: "text-violet-400"  },
+  blue:    { track: "bg-blue-500",    text: "text-blue-400"    },
+  red:     { track: "bg-red-400",     text: "text-red-400"     },
+  emerald: { track: "bg-emerald-500", text: "text-emerald-400" },
+};
+export default function ScaleSlider({ label, value, onChange, color = "violet" }: ScaleSliderProps) {
+  const c = COLOR_MAP[color];
+  return (
+    <div className="w-full">
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-xs text-white/50 font-medium">{label}</span>
+        <span className={`text-sm font-bold font-mono ${c.text}`}>{value}</span>
+      </div>
+      <div className="relative h-1.5 bg-white/10 rounded-full">
+        <div className={`absolute left-0 top-0 h-full rounded-full ${c.track} transition-all`} style={{ width: `${value * 10}%` }} />
+      </div>
+      <input
+        type="range" min={0} max={10} value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ position: "relative", margin: 0, padding: 0, appearance: "none", width: "100%", height: "24px", background: "transparent" }}
+      />
+      <div className="flex justify-between text-[10px] text-white/20 mt-1 font-mono">
+        <span>0</span><span>5</span><span>10</span>
+      </div>
+    </div>
+  );
+}
+
+artifacts/imprintid/src/components/StimulusVisual.tsx
+import React from "react";
+interface StimulusVisualProps {
+  id: string;
+  variant: "A" | "B";
+}
+// Variant A — color photos; Variant B — grayscale + data overlay
+function FloodA() {
+  return (
+    <div className="relative w-full aspect-video rounded-2xl overflow-hidden select-none">
+      <img src="/flood-rs.png" alt="Enchente RS 2024" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] font-mono text-white/50 tracking-widest uppercase">Sul do Brasil · 2024</div>
+    </div>
+  );
+}
+function FloodB() {
+  return (
+    <div className="relative w-full aspect-video rounded-2xl overflow-hidden select-none">
+      <img src="/flood-rs.png" alt="Enchente RS 2024" className="absolute inset-0 w-full h-full object-cover grayscale" draggable={false} />
+      <div className="absolute inset-0 bg-blue-900/40" />
+      <div className="absolute inset-0 flex flex-col justify-between p-6 text-xs font-mono">
+        <div className="flex gap-4">
+          <div className="px-3 py-1.5 bg-black/40 rounded-lg border border-white/10">
+            <p className="text-white/40 text-[9px] mb-0.5">ÁREA AFETADA</p>
+            <p className="text-white/80 font-bold">421.000 km²</p>
+          </div>
+          <div className="px-3 py-1.5 bg-black/40 rounded-lg border border-white/10">
+            <p className="text-white/40 text-[9px] mb-0.5">DESLOCADOS</p>
+            <p className="text-white/80 font-bold">581.000</p>
+          </div>
+        </div>
+        <div className="text-[10px] text-white/25 tracking-widest uppercase">Sul do Brasil · Rio Grande do Sul · 2024</div>
+      </div>
+    </div>
+  );
+}
+// CovidA, CovidB, DisplacementA, DisplacementB, ConflictA, ConflictB
+// seguem o mesmo padrão — ver repositório para código completo
+const VISUAL_MAP: Record<string, { A: () => React.ReactElement; B: () => React.ReactElement }> = {
+  flood:        { A: FloodA, B: FloodB },
+  // covid, displacement, conflict — mesma estrutura
+};
+export default function StimulusVisual({ id, variant }: StimulusVisualProps) {
+  const entry = VISUAL_MAP[id];
+  if (!entry) return null;
+  const Component = entry[variant];
+  return <Component />;
+}
+
+2.5 Bibliotecas utilitárias
+artifacts/imprintid/src/lib/iss.ts — ISS Scoring Engine
+export type ReactionLevel    = "nothing" | "slight" | "emotional" | "strong";
+export type AssociationLevel = "yes" | "no" | "prefer_not";
+export type AttachmentProfile = "seguro" | "ansioso" | "evitativo" | "desorganizado";
+export type ResponseType     = "instinctive" | "reflective";
+export interface StimulusResponse {
+  id: string;
+  label: string;
+  variant: "A" | "B";
+  reaction: ReactionLevel;
+  association: AssociationLevel;
+  anxiety: number;        // 0–10
+  sadness: number;        // 0–10
+  fear: number;           // 0–10
+  connection: number;     // 0–10
+  reactionTimeMs: number;
+  observeTimeMs: number;
+  responseType: ResponseType;
+}
+export interface ISSResult {
+  score: number;                    // 0–100
+  attachmentProfile: AttachmentProfile;
+  attachmentLabel: string;
+  attachmentDesc: string;
+  attachmentColor: string;
+  sensitivity: "high" | "moderate" | "low" | "minimal";
+  sensitivityLabel: string;
+  emotionalIntensity: number;       // E
+  associationRate: number;          // A
+  avgObserveTimeMs: number;         // T
+  emotionalDelta: number;           // D
+  emotionalVariance: number;        // V
+  dominantTrigger: string;
+  dominantTriggerLabel: string;
+  overallResponseType: ResponseType | "mixed";
+  breakdown: {
+    scaleScore: number;
+    associationScore: number;
+    reactionBonus: number;
+    varianceScore: number;
+  };
+  perStimulus: { id: string; label: string; intensity: number; contribution: number; variant: "A" | "B" }[];
+  profile: AttachmentProfile;
+  profileLabel: string;
+  profileDesc: string;
+}
+const REACTION_WEIGHT: Record<ReactionLevel, number> = {
+  nothing: 0, slight: 2, emotional: 6, strong: 10,
+};
+export function computeISS(responses: StimulusResponse[]): ISSResult {
+  if (responses.length === 0) return emptyResult();
+  const stimData = responses.map((r) => ({
+    id: r.id, label: r.label, variant: r.variant,
+    intensity: (r.anxiety + r.sadness + r.fear + r.connection) / 4,
+  }));
+  const intensities = stimData.map((s) => s.intensity);
+  const E = intensities.reduce((a, b) => a + b, 0) / intensities.length;
+  const A = responses.filter((r) => r.association === "yes").length / responses.length;
+  const T = responses.reduce((a, r) => a + r.observeTimeMs, 0) / responses.length;
+  const D = Math.max(...intensities) - Math.min(...intensities);
+  const V = Math.sqrt(intensities.reduce((s, x) => s + (x - E) ** 2, 0) / intensities.length);
+  const dominant = stimData.reduce((a, b) => (a.intensity >= b.intensity ? a : b));
+  const instinctiveRatio = responses.filter((r) => r.responseType === "instinctive").length / responses.length;
+  const overallResponseType: ResponseType | "mixed" =
+    instinctiveRatio > 0.7 ? "instinctive" : instinctiveRatio < 0.3 ? "reflective" : "mixed";
+  const scaleScore      = Math.round(E * 5);
+  const associationScore = Math.round(A * 20);
+  const reactionBonus   = responses.filter(
+    (r) => (r.reaction === "emotional" || r.reaction === "strong") && r.observeTimeMs < 8000
+  ).length * 3;
+  const varianceScore   = Math.round(Math.min(V * 4, 18));
+  const score           = Math.min(100, Math.max(0, scaleScore + associationScore + reactionBonus + varianceScore));
+  // Attachment profile — Bowlby / Ainsworth
+  let attachmentProfile: AttachmentProfile;
+  if (E < 3 && A < 0.25) {
+    attachmentProfile = "evitativo";
+  } else if (V >= 2.5 && D >= 4) {
+    attachmentProfile = "desorganizado";
+  } else if (E >= 6.5 || (A >= 0.5 && T < 10000)) {
+    attachmentProfile = "ansioso";
+  } else {
+    attachmentProfile = "seguro";
+  }
+  // ... (profileMap, perStimulus, return — ver repositório completo)
+  return { score, attachmentProfile, /* ... */ } as ISSResult;
+}
+
+artifacts/imprintid/src/lib/hash.ts
+import SHA256 from "crypto-js/sha256";
+export function generateHash(data: object): string {
+  return SHA256(JSON.stringify(data)).toString();
+}
+
+artifacts/imprintid/src/lib/ipfs.ts
+async function uploadJson(data: object, filename: string): Promise<string> {
+  const key = import.meta.env.VITE_WEB3_STORAGE_KEY;
+  if (!key) {
+    // Mock fallback when key is not configured
+    await new Promise((r) => setTimeout(r, 400));
+    return `ipfs://bafybei${Math.random().toString(36).slice(2, 14)}/${filename}`;
+  }
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const file = new File([blob], filename);
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch("https://api.web3.storage/upload", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}` },
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`IPFS upload failed: ${res.statusText}`);
+  const json = await res.json();
+  return `https://${json.cid}.ipfs.dweb.link/${filename}`;
+}
+export async function uploadToIPFS(data: object): Promise<string> {
+  return uploadJson(data, "imprint.json");
+}
+export async function uploadNftMetadata(metadata: object): Promise<string> {
+  return uploadJson(metadata, "nft-metadata.json");
+}
+
+artifacts/imprintid/src/lib/nft.ts
+import type { ISSResult } from "./iss";
+const PROFILE_IMAGES: Record<string, string> = {
+  seguro:        "https://placehold.co/500x500/060d1a/60a5fa?font=monospace&text=ImprintID%0AApego+Seguro",
+  ansioso:       "https://placehold.co/500x500/1a1000/fbbf24?font=monospace&text=ImprintID%0AApego+Ansioso",
+  evitativo:     "https://placehold.co/500x500/1a0808/f87171?font=monospace&text=ImprintID%0AApego+Evitativo",
+  desorganizado: "https://placehold.co/500x500/100a1a/a78bfa?font=monospace&text=ImprintID%0AApego+Desorganizado",
+};
+export function buildNftMetadata(iss: ISSResult, payloadUri: string, variant: string): object {
+  const image = PROFILE_IMAGES[iss.attachmentProfile] ?? PROFILE_IMAGES.seguro;
+  return {
+    name: `ImprintID — ${iss.attachmentLabel}`,
+    symbol: "IMPRINT",
+    description: `Prova de Experiência ancorada na Solana Devnet. ISS: ${iss.score}/100 · ${iss.attachmentLabel}. Protocolo ImprintID v2 — Bowlby / Ainsworth.`,
+    image,
+    external_url: "https://imprintid.app",
+    attributes: [
+      { trait_type: "ISS Score",             value: iss.score },
+      { trait_type: "Perfil de Apego",       value: iss.attachmentLabel },
+      { trait_type: "Intensidade Emocional", value: iss.emotionalIntensity },
+      { trait_type: "Taxa de Associação",    value: `${Math.round(iss.associationRate * 100)}%` },
+      { trait_type: "Delta Emocional",       value: iss.emotionalDelta },
+      { trait_type: "Variância",             value: iss.emotionalVariance },
+      { trait_type: "Gatilho Dominante",     value: iss.dominantTriggerLabel },
+      { trait_type: "Tipo de Resposta",      value: iss.overallResponseType === "instinctive" ? "Instintiva" : iss.overallResponseType === "reflective" ? "Reflexiva" : "Mista" },
+      { trait_type: "Variante A/B",          value: variant },
+      { trait_type: "Protocolo",             value: "ImprintID v2" },
+      { trait_type: "Rede",                  value: "Solana Devnet" },
+    ],
+    properties: {
+      files: [{ uri: image, type: "image/png" }],
+      category: "image",
+      creators: [],
+    },
+    collection: { name: "ImprintID", family: "ImprintID" },
+  };
+}
+
+artifacts/imprintid/src/lib/solana.ts
+import { Connection, PublicKey, Transaction, TransactionInstruction, LAMPORTS_PER_SOL } from "@solana/web3.js";
+export const DEVNET_RPC = import.meta.env.VITE_SOLANA_RPC ?? "https://api.devnet.solana.com";
+export const MEMO_PROGRAM_ID = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
+export const MIN_BALANCE_SOL = 0.05;
+export async function getBalance(connection: Connection, publicKey: PublicKey): Promise<number> {
+  const lamports = await connection.getBalance(publicKey);
+  return lamports / LAMPORTS_PER_SOL;
+}
+export async function requestAirdrop(connection: Connection, publicKey: PublicKey): Promise<void> {
+  const sig = await connection.requestAirdrop(publicKey, LAMPORTS_PER_SOL);
+  const latestBlockhash = await connection.getLatestBlockhash();
+  await connection.confirmTransaction({ signature: sig, ...latestBlockhash }, "confirmed");
+}
+export interface ImprintPayload {
+  hash: string;
+  uri: string;
+  iss: number;
+  attachmentProfile: string;
+  variant: string;
+  timestamp: number;
+}
+/** Client-side Memo Program tx — fallback when server-side minting is unavailable */
+export async function createImprintTransaction(
+  connection: Connection,
+  publicKey: PublicKey,
+  sendTransaction: (tx: Transaction, conn: Connection) => Promise<string>,
+  payload: ImprintPayload
+): Promise<string> {
+  const memoData = JSON.stringify({
+    p: "imprint-v2", h: payload.hash, u: payload.uri,
+    iss: payload.iss, ap: payload.attachmentProfile, v: payload.variant, t: payload.timestamp,
+  });
+  const memoInstruction = new TransactionInstruction({
+    keys: [{ pubkey: publicKey, isSigner: true, isWritable: false }],
+    programId: MEMO_PROGRAM_ID,
+    data: Buffer.from(memoData, "utf-8"),
+  });
+  const transaction = new Transaction().add(memoInstruction);
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = publicKey;
+  const signature = await sendTransaction(transaction, connection);
+  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+  return signature;
+}
+
+artifacts/imprintid/src/lib/anchor.ts
+import * as anchor from "@coral-xyz/anchor";
+import type { AnchorWallet } from "@solana/wallet-adapter-react";
+import idl from "./idl.json";
+const PROGRAM_ID_STR = import.meta.env.VITE_PROGRAM_ID as string | undefined;
+export function hasProgramId(): boolean {
+  return !!PROGRAM_ID_STR && PROGRAM_ID_STR !== "REPLACE_WITH_YOUR_PROGRAM_ID" && PROGRAM_ID_STR.length > 10;
+}
+function getProvider(wallet: AnchorWallet): anchor.AnchorProvider {
+  const connection = new anchor.web3.Connection(
+    import.meta.env.VITE_SOLANA_RPC ?? "https://api.devnet.solana.com", "confirmed"
+  );
+  return new anchor.AnchorProvider(connection, wallet, {
+    preflightCommitment: "processed", commitment: "confirmed",
+  });
+}
+function getProgram(wallet: AnchorWallet): anchor.Program {
+  const provider = getProvider(wallet);
+  const idlWithAddress = { ...idl, address: PROGRAM_ID_STR! };
+  return new anchor.Program(idlWithAddress as unknown as anchor.Idl, provider);
+}
+export function getImprintPDA(owner: anchor.web3.PublicKey, programId: anchor.web3.PublicKey): [anchor.web3.PublicKey, number] {
+  return anchor.web3.PublicKey.findProgramAddressSync(
+    [Buffer.from("imprint"), owner.toBuffer()], programId
+  );
+}
+export interface CreateImprintArgs {
+  hash: string; uri: string; iss: number; attachmentProfile: string; variant: string;
+}
+export async function createImprintAnchor(wallet: AnchorWallet, args: CreateImprintArgs): Promise<string> {
+  if (!hasProgramId()) throw new Error("VITE_PROGRAM_ID not configured.");
+  const programId = new anchor.web3.PublicKey(PROGRAM_ID_STR!);
+  const program = getProgram(wallet);
+  const [imprintPDA] = getImprintPDA(wallet.publicKey, programId);
+  const tx = await (program.methods as any)
+    .createImprint(args.hash.slice(0, 64), args.uri.slice(0, 100), Math.max(0, Math.min(100, Math.round(args.iss))), args.attachmentProfile.slice(0, 16), args.variant.slice(0, 2))
+    .accounts({ imprint: imprintPDA, owner: wallet.publicKey, systemProgram: anchor.web3.SystemProgram.programId })
+    .rpc();
+  return tx as string;
+}
+export async function fetchImprint(wallet: AnchorWallet, ownerPubkey?: anchor.web3.PublicKey) {
+  if (!hasProgramId()) return null;
+  try {
+    const programId = new anchor.web3.PublicKey(PROGRAM_ID_STR!);
+    const program = getProgram(wallet);
+    const owner = ownerPubkey ?? wallet.publicKey;
+    const [imprintPDA] = getImprintPDA(owner, programId);
+    return await (program.account as any).imprint.fetch(imprintPDA);
+  } catch { return null; }
+}
+
+2.6 Programa Anchor (Rust)
+artifacts/imprintid/src/lib/program.rs
+// ImprintID — Solana Anchor Program
+// Deploy via Solana Playground: https://beta.solpg.io/
+//
+// 1. Open Solana Playground and create a new project (Anchor framework)
+// 2. Replace the contents of lib.rs with this file
+// 3. Build → Deploy to Devnet
+// 4. Copy the Program ID shown after deployment
+// 5. Download the IDL (Export → IDL) and replace src/lib/idl.json
+// 6. Set VITE_PROGRAM_ID=<your_program_id> in Replit Secrets
+use anchor_lang::prelude::*;
+declare_id!("REPLACE_WITH_YOUR_PROGRAM_ID");
+// Space: 8 (discriminator) + 32 (owner) + 68 (hash) + 104 (uri) + 1 (iss)
+//        + 20 (attachment_profile) + 6 (variant) + 8 (timestamp) + 1 (bump) = 248
+const IMPRINT_SPACE: usize = 8 + 32 + (4 + 64) + (4 + 100) + 1 + (4 + 16) + (4 + 2) + 8 + 1;
+#[program]
+pub mod imprintid {
+    use super::*;
+    /// Create a single behavioral-identity record anchored to the signer's wallet.
+    /// PDA: seeds = ["imprint", owner_pubkey] — one account per wallet.
+    pub fn create_imprint(
+        ctx: Context<CreateImprint>,
+        hash: String,
+        uri: String,
+        iss: u8,
+        attachment_profile: String,
+        variant: String,
+    ) -> Result<()> {
+        require!(hash.len() <= 64,              ImprintError::HashTooLong);
+        require!(uri.len() <= 100,              ImprintError::UriTooLong);
+        require!(iss <= 100,                    ImprintError::IssOutOfRange);
+        require!(attachment_profile.len() <= 16,ImprintError::ProfileTooLong);
+        require!(variant.len() <= 2,            ImprintError::VariantTooLong);
+        let imprint = &mut ctx.accounts.imprint;
+        imprint.owner             = ctx.accounts.owner.key();
+        imprint.hash              = hash;
+        imprint.uri               = uri;
+        imprint.iss               = iss;
+        imprint.attachment_profile = attachment_profile;
+        imprint.variant           = variant;
+        imprint.timestamp         = Clock::get()?.unix_timestamp;
+        imprint.bump              = ctx.bumps.imprint;
+        msg!("ImprintID: owner={} iss={} profile={} hash={}",
+            imprint.owner, imprint.iss, imprint.attachment_profile,
+            &imprint.hash[..8.min(imprint.hash.len())]);
+        Ok(())
+    }
+}
+#[derive(Accounts)]
+pub struct CreateImprint<'info> {
+    #[account(
+        init,
+        payer = owner,
+        space = IMPRINT_SPACE,
+        seeds = [b"imprint", owner.key().as_ref()],
+        bump,
+    )]
+    pub imprint: Account<'info, Imprint>,
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+#[account]
+pub struct Imprint {
+    pub owner:              Pubkey,
+    pub hash:               String,
+    pub uri:                String,
+    pub iss:                u8,
+    pub attachment_profile: String,
+    pub variant:            String,
+    pub timestamp:          i64,
+    pub bump:               u8,
+}
+#[error_code]
+pub enum ImprintError {
+    #[msg("Hash string exceeds 64 characters")]   HashTooLong,
+    #[msg("URI string exceeds 100 characters")]   UriTooLong,
+    #[msg("ISS score must be 0–100")]             IssOutOfRange,
+    #[msg("Attachment profile exceeds 16 characters")] ProfileTooLong,
+    #[msg("Variant exceeds 2 characters")]        VariantTooLong,
+}
+
+2.7 IDL (Interface Definition Language)
+artifacts/imprintid/src/lib/idl.json
+{
+  "address": "REPLACE_WITH_YOUR_PROGRAM_ID",
+  "version": "0.1.0",
+  "name": "imprintid",
+  "instructions": [
+    {
+      "name": "createImprint",
+      "accounts": [
+        { "name": "imprint",       "isMut": true,  "isSigner": false, "docs": ["PDA: seeds=['imprint', owner]. One account per wallet."] },
+        { "name": "owner",         "isMut": true,  "isSigner": true,  "docs": ["Wallet signing and paying for account creation"] },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "hash",              "type": "string" },
+        { "name": "uri",               "type": "string" },
+        { "name": "iss",               "type": "u8"     },
+        { "name": "attachmentProfile", "type": "string" },
+        { "name": "variant",           "type": "string" }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Imprint",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "owner",             "type": "publicKey" },
+          { "name": "hash",              "type": "string"    },
+          { "name": "uri",               "type": "string"    },
+          { "name": "iss",               "type": "u8"        },
+          { "name": "attachmentProfile", "type": "string"    },
+          { "name": "variant",           "type": "string"    },
+          { "name": "timestamp",         "type": "i64"       },
+          { "name": "bump",              "type": "u8"        }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "HashTooLong",    "msg": "Hash string exceeds 64 characters"        },
+    { "code": 6001, "name": "UriTooLong",     "msg": "URI string exceeds 100 characters"         },
+    { "code": 6002, "name": "IssOutOfRange",  "msg": "ISS score must be 0-100"                  },
+    { "code": 6003, "name": "ProfileTooLong", "msg": "Attachment profile exceeds 16 characters" },
+    { "code": 6004, "name": "VariantTooLong", "msg": "Variant exceeds 2 characters"             }
+  ]
+}
+
+3. API Server — Express 5
+3.1 Servidor e app
+artifacts/api-server/src/index.ts
+import app from "./app";
+import { logger } from "./lib/logger";
+import { ensureServerWalletFunded } from "./lib/solana-nft";
+const rawPort = process.env["PORT"];
+if (!rawPort) throw new Error("PORT environment variable is required but was not provided.");
+const port = Number(rawPort);
+if (Number.isNaN(port) || port <= 0) throw new Error(`Invalid PORT value: "${rawPort}"`);
+app.listen(port, (err) => {
+  if (err) { logger.error({ err }, "Error listening on port"); process.exit(1); }
+  logger.info({ port }, "Server listening");
+  // Pre-fund server wallet so NFT minting works without user SOL
+  ensureServerWalletFunded().catch((e) =>
+    logger.warn({ err: e }, "Server wallet funding skipped")
+  );
+});
+
+artifacts/api-server/src/app.ts
+import express, { type Express } from "express";
+import cors from "cors";
+import pinoHttp from "pino-http";
+import router from "./routes";
+import { logger } from "./lib/logger";
+const app: Express = express();
+app.use(pinoHttp({
+  logger,
+  serializers: {
+    req(req) { return { id: req.id, method: req.method, url: req.url?.split("?")[0] }; },
+    res(res) { return { statusCode: res.statusCode }; },
+  },
+}));
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use("/api", router);
+export default app;
+
+3.2 Rotas
+artifacts/api-server/src/routes/index.ts
+import { Router, type IRouter } from "express";
+import healthRouter from "./health";
+import nftRouter from "./nft";
+const router: IRouter = Router();
+router.use(healthRouter);
+router.use(nftRouter);
+export default router;
+
+artifacts/api-server/src/routes/health.ts
+import { Router, type IRouter } from "express";
+import { HealthCheckResponse } from "@workspace/api-zod";
+const router: IRouter = Router();
+router.get("/healthz", (_req, res) => {
+  const data = HealthCheckResponse.parse({ status: "ok" });
+  res.json(data);
+});
+export default router;
+
+artifacts/api-server/src/routes/nft.ts
+import { Router } from "express";
+import { z } from "zod";
+import { mintNftForWallet, createServerMemoTx, getServerWalletInfo } from "../lib/solana-nft";
+const router = Router();
+const MintBody = z.object({
+  walletAddress:     z.string().min(32).max(44),
+  metadataUri:       z.string().min(1).max(500),
+  nftName:           z.string().min(1).max(100),
+  hash:              z.string().max(128).optional(),
+  uri:               z.string().max(500).optional(),
+  iss:               z.number().int().min(0).max(100).optional(),
+  attachmentProfile: z.string().max(32).optional(),
+  variant:           z.string().max(4).optional(),
+  timestamp:         z.number().optional(),
+});
+router.post("/nft/mint", async (req, res) => {
+  const parsed = MintBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+    return;
+  }
+  const { walletAddress, metadataUri, nftName, hash, uri, iss, attachmentProfile, variant, timestamp } = parsed.data;
+  // NFT mint (non-fatal)
+  let mint: string | undefined;
+  let txSignature: string | undefined;
+  let nftError: string | undefined;
+  try {
+    const result = await mintNftForWallet(walletAddress, metadataUri, nftName);
+    mint = result.mint;
+    txSignature = result.txSignature;
+    req.log.info({ mint, txSignature, walletAddress }, "NFT minted");
+  } catch (err) {
+    nftError = (err as { message?: string })?.message ?? "NFT mint failed";
+    req.log.warn({ err, walletAddress }, "NFT mint failed (non-fatal)");
+  }
+  // Server-side Memo anchor tx (non-fatal)
+  let memoSignature: string | undefined;
+  let memoError: string | undefined;
+  if (hash && uri && iss !== undefined && attachmentProfile && variant && timestamp) {
+    try {
+      memoSignature = await createServerMemoTx({ hash, uri, iss, attachmentProfile, variant, timestamp, walletAddress });
+      req.log.info({ memoSignature, walletAddress }, "Server memo tx anchored");
+    } catch (err) {
+      memoError = (err as { message?: string })?.message ?? "Memo tx failed";
+      req.log.warn({ err, walletAddress }, "Server memo tx failed (non-fatal)");
+    }
+  }
+  const walletInfo = await getServerWalletInfo().catch(() => null);
+  // Always 200 — let the frontend handle degradation gracefully
+  res.json({
+    mint, txSignature, memoSignature,
+    ...(nftError && { nftError }),
+    ...(memoError && { memoError }),
+    serverWallet: walletInfo?.pubkey,
+    serverBalanceSOL: walletInfo?.balanceSOL,
+  });
+});
+router.get("/nft/wallet", async (_req, res) => {
+  const info = await getServerWalletInfo();
+  res.json({
+    ...info,
+    faucetUrl: "https://faucet.solana.com",
+    hint: info.needsFunding
+      ? `Fund ${info.pubkey} with 5+ SOL at https://faucet.solana.com to enable on-chain minting.`
+      : "Server wallet is funded.",
+  });
+});
+export default router;
+
+3.3 Bibliotecas do servidor
+artifacts/api-server/src/lib/logger.ts
+import pino from "pino";
+const isProduction = process.env.NODE_ENV === "production";
+export const logger = pino({
+  level: process.env.LOG_LEVEL ?? "info",
+  redact: [
+    "req.headers.authorization",
+    "req.headers.cookie",
+    "res.headers['set-cookie']",
+  ],
+  ...(isProduction
+    ? {}
+    : {
+        transport: {
+          target: "pino-pretty",
+          options: { colorize: true },
+        },
+      }),
+});
+
+artifacts/api-server/src/lib/solana-nft.ts
+import crypto from "crypto";
+import {
+  Connection, Keypair, LAMPORTS_PER_SOL, PublicKey,
+  Transaction, TransactionInstruction,
+} from "@solana/web3.js";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { createNft, mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
+import {
+  keypairIdentity, generateSigner, percentAmount,
+  createSignerFromKeypair, publicKey as umiPublicKey,
+} from "@metaplex-foundation/umi";
+import { base58 } from "@metaplex-foundation/umi/serializers";
+import { logger } from "./logger";
+const RPC_URL = process.env["VITE_SOLANA_RPC"] ?? "https://api.devnet.solana.com";
+const MEMO_PROGRAM_ID = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
+// ── Server payer keypair ──────────────────────────────────────────────────────
+// Priority:
+//   1. SOLANA_SERVER_KEYPAIR (JSON array of 64 ints) — explicit override
+//   2. SESSION_SECRET → SHA-256 seed               — stable across restarts
+//   3. Ephemeral (random)                           — last resort, logs warning
+let _payerKeypair: Keypair | null = null;
+export function getPayerKeypair(): Keypair {
+  if (_payerKeypair) return _payerKeypair;
+  const raw = process.env["SOLANA_SERVER_KEYPAIR"];
+  if (raw) {
+    try {
+      _payerKeypair = Keypair.fromSecretKey(new Uint8Array(JSON.parse(raw) as number[]));
+      logger.info({ pubkey: _payerKeypair.publicKey.toBase58() }, "Server payer loaded from SOLANA_SERVER_KEYPAIR");
+      return _payerKeypair;
+    } catch {
+      logger.warn("SOLANA_SERVER_KEYPAIR parse failed — falling through to SESSION_SECRET derivation");
+    }
+  }
+  const session = process.env["SESSION_SECRET"];
+  if (session) {
+    const seed = crypto.createHash("sha256").update(`imprintid-solana-payer:${session}`).digest();
+    _payerKeypair = Keypair.fromSeed(new Uint8Array(seed));
+    logger.info({ pubkey: _payerKeypair.publicKey.toBase58() }, "Server payer derived from SESSION_SECRET (stable across restarts)");
+    return _payerKeypair;
+  }
+  _payerKeypair = Keypair.generate();
+  logger.warn({ pubkey: _payerKeypair.publicKey.toBase58() }, "Ephemeral keypair — fund at https://faucet.solana.com");
+  return _payerKeypair;
+}
+export async function getServerWalletInfo(): Promise<{ pubkey: string; balanceSOL: number; needsFunding: boolean }> {
+  const keypair = getPayerKeypair();
+  const conn = new Connection(RPC_URL, "confirmed");
+  try {
+    const balance = await conn.getBalance(keypair.publicKey);
+    const balanceSOL = balance / LAMPORTS_PER_SOL;
+    return { pubkey: keypair.publicKey.toBase58(), balanceSOL, needsFunding: balanceSOL < 0.1 };
+  } catch {
+    return { pubkey: keypair.publicKey.toBase58(), balanceSOL: -1, needsFunding: true };
+  }
+}
+export async function ensureServerWalletFunded(): Promise<void> {
+  const keypair = getPayerKeypair();
+  const conn = new Connection(RPC_URL, "confirmed");
+  try {
+    const balance = await conn.getBalance(keypair.publicKey);
+    const sol = balance / LAMPORTS_PER_SOL;
+    logger.info({ pubkey: keypair.publicKey.toBase58(), balanceSOL: sol }, "Server wallet balance");
+    if (balance < 0.3 * LAMPORTS_PER_SOL) {
+      logger.info("Server wallet low — requesting airdrop");
+      for (let i = 0; i < 2; i++) {
+        try {
+          const sig = await conn.requestAirdrop(keypair.publicKey, 2 * LAMPORTS_PER_SOL);
+          const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
+          await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+          logger.info({ sig, attempt: i + 1 }, "Server wallet airdropped 2 SOL");
+          return;
+        } catch (err) {
+          logger.warn({ err, attempt: i + 1 }, `Airdrop attempt ${i + 1} failed`);
+          if (i < 1) await new Promise((r) => setTimeout(r, 3000));
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "Server wallet auto-fund failed. Fund manually at https://faucet.solana.com");
+  }
+}
+export interface AnchorPayload {
+  hash: string; uri: string; iss: number;
+  attachmentProfile: string; variant: string;
+  timestamp: number; walletAddress: string;
+}
+export async function createServerMemoTx(payload: AnchorPayload): Promise<string> {
+  const payer = getPayerKeypair();
+  const conn = new Connection(RPC_URL, "confirmed");
+  const memoData = JSON.stringify({
+    p: "imprint-v2", h: payload.hash, u: payload.uri,
+    iss: payload.iss, ap: payload.attachmentProfile, v: payload.variant,
+    t: payload.timestamp, w: payload.walletAddress,
+  });
+  const memoInstruction = new TransactionInstruction({
+    keys: [{ pubkey: payer.publicKey, isSigner: true, isWritable: false }],
+    programId: MEMO_PROGRAM_ID,
+    data: Buffer.from(memoData, "utf-8"),
+  });
+  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+  const tx = new Transaction().add(memoInstruction);
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = payer.publicKey;
+  tx.sign(payer);
+  const signature = await conn.sendRawTransaction(tx.serialize());
+  await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+  return signature;
+}
+export interface ServerMintResult { mint: string; txSignature: string; }
+export async function mintNftForWallet(
+  recipientAddress: string,
+  metadataUri: string,
+  nftName: string
+): Promise<ServerMintResult> {
+  const payer = getPayerKeypair();
+  const umi = createUmi(RPC_URL).use(mplTokenMetadata());
+  const umiKeypair = umi.eddsa.createKeypairFromSecretKey(payer.secretKey);
+  umi.use(keypairIdentity(createSignerFromKeypair(umi, umiKeypair)));
+  const mint = generateSigner(umi);
+  const { signature } = await createNft(umi, {
+    mint,
+    name: nftName,
+    symbol: "IMPRINT",
+    uri: metadataUri,
+    sellerFeeBasisPoints: percentAmount(0),
+    isMutable: false,
+    tokenOwner: umiPublicKey(recipientAddress),
+  }).sendAndConfirm(umi, { confirm: { commitment: "confirmed" } });
+  const [txSignature] = base58.deserialize(new Uint8Array(signature));
+  return { mint: mint.publicKey.toString(), txSignature };
+}
+
+4. Bibliotecas Compartilhadas
+4.1 OpenAPI Spec
+lib/api-spec/openapi.yaml
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+4.2 Database Schema
+lib/db/src/schema/index.ts
+// Drizzle ORM schema — adicione tabelas aqui conforme necessário.
+// Exemplo:
+//   import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+//   export const imprintsTable = pgTable("imprints", {
+//     id: serial("id").primaryKey(),
+//     walletAddress: text("wallet_address").notNull(),
+//     hash: text("hash").notNull(),
+//     uri: text("uri").notNull(),
+//     iss: text("iss").notNull(),
+//     createdAt: timestamp("created_at").defaultNow(),
+//   });
+export {}
+
+lib/db/drizzle.config.ts
+import { defineConfig } from "drizzle-kit";
+import path from "path";
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL, ensure the database is provisioned");
+}
+export default defineConfig({
+  schema: path.join(__dirname, "./src/schema/index.ts"),
+  dialect: "postgresql",
+  dbCredentials: { url: process.env.DATABASE_URL },
+});
+
+5. Configuração e CI/CD
+.github/workflows/typecheck.yml
+name: Typecheck
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+jobs:
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck:libs
+      - run: pnpm run typecheck
+
+.github/workflows/build.yml
+name: Build
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  build:
+    name: Build all packages
+    runs-on: ubuntu-latest
+    env:
+      SESSION_SECRET: ci_session_secret_placeholder_32chars
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/imprintid
+      PORT: 8080
+      BASE_PATH: /
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @workspace/api-server run build
+      - run: pnpm --filter @workspace/imprintid run build
+
+.gitignore (entradas relevantes)
+# Dependencies
+node_modules/
+dist/
+# Environment secrets — never commit
+.env
+.env.local
+.env.*.local
+# Build caches
+.cache/
+.local/
+# Uploaded assets (Replit workspace files, not source)
+attached_assets/
+# TypeScript build info
+*.tsbuildinfo
+
+Notas de Implementação
+Fluxo de Dados Completo
+Usuário vê Landing → clica "Start" → Connect (Phantom) → Experiment
+  ↓
+  Para cada um dos 4 estímulos:
+    observe (35s ou manual) → react-immediate (4 opções) →
+    react-association (3 opções) → react-scales (4 sliders 0-10)
+  ↓
+  submitAll():
+    1. computeISS()           → score 0-100 + perfil de apego
+    2. generateHash(payload)  → SHA-256 hex
+    3. uploadToIPFS(payload)  → ipfs://... URI
+    4. buildNftMetadata()     → Metaplex JSON
+    5. uploadNftMetadata()    → ipfs://... URI
+    6. POST /api/nft/mint     → servidor minta NFT + Memo tx
+  ↓
+  Dashboard: ISS gauge + perfil + variáveis E/A/T/D/V + links Solscan
+
+Cálculo do ISS (Imprint Sensitivity Score)
+score = scaleScore + associationScore + reactionBonus + varianceScore
+      = round(E × 5)         [0–50]
+      + round(A × 20)        [0–20]
+      + instinctiveReactions × 3  [0–12]
+      + min(V × 4, 18)       [0–18]
+      = total 0–100
+Perfis de apego:
+  E < 3  AND A < 0.25           → evitativo
+  V ≥ 2.5 AND D ≥ 4             → desorganizado
+  E ≥ 6.5 OR (A ≥ 0.5 AND T < 10s) → ansioso
+  default                       → seguro
+
+Chave do Servidor (Server Wallet)
+SERVER_KEYPAIR = SHA-256("imprintid-solana-payer:" + SESSION_SECRET)
+               → Keypair.fromSeed(seed[0..32])
+Endereço atual: 4RnmsHgZPhKCzNEp9Gsd2Nmj98HGAdwZYnkntHviRuj9
+Financiamento:  https://faucet.solana.com → 5 SOL → ~300 mints
