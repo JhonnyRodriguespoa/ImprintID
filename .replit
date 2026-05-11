@@ -6,10 +6,10 @@ deploymentTarget = "autoscale"
 
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
+env = { CI = "true" }
 
 [workflows]
-runButton = "Project"
+runButton = "Start ImprintID"
 
 [agent]
 stack = "PNPM_WORKSPACE"
@@ -20,17 +20,5 @@ path = "scripts/post-merge.sh"
 timeoutMs = 20000
 
 [[ports]]
-localPort = 8080
-externalPort = 8080
-
-[[ports]]
-localPort = 8081
+localPort = 3000
 externalPort = 80
-
-[[ports]]
-localPort = 8082
-externalPort = 3003
-
-[[ports]]
-localPort = 19933
-externalPort = 3000
