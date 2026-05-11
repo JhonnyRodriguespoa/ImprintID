@@ -1,14 +1,43 @@
 {
-  "name": "workspace",
-  "version": "0.0.0",
+  "name": "imprintid",
+  "version": "0.1.0",
+  "description": "ImprintID is a Proof of Experience protocol on Solana that transforms real-world human interactions into verifiable behavioral identity.",
   "license": "MIT",
+  "private": true,
+
+  "author": "Jônatas Rodrigues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SEU-USUARIO/IMPRINT-ID"
+  },
+
+  "keywords": [
+    "solana",
+    "web3",
+    "identity",
+    "proof-of-experience",
+    "behavioral-identity",
+    "anchor",
+    "dao",
+    "reputation"
+  ],
+
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+
+    "dev": "pnpm -r --if-present run dev",
+
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
+
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+
+    "test": "pnpm -r --if-present run test",
+
+    "lint": "pnpm -r --if-present run lint"
   },
-  "private": true,
+
   "devDependencies": {
     "typescript": "~5.9.2",
     "prettier": "^3.8.1"
