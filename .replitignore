@@ -1,5 +1,28 @@
 # The format of this file is identical to `.dockerignore`.
-# It is used to reduce the size of deployed images to make the process of publishing faster.
+# Used to reduce deployment image size and speed up publishing.
 
-# No need to store the pnpm store twice.
+# Local pnpm cache
 .local
+
+# Dependencies
+node_modules
+
+# Build artifacts
+dist
+build
+.next
+target
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+
+# OS files
+.DS_Store
+
+# Git
+.git
+.gitignore
